@@ -59,4 +59,4 @@ class MemoryStorageEngine(AbstractStorageEngine):
             return [x for x in self._data if fnmatch.fnmatch(x.url, url)]
         elif metadata is not None:
             return [x for x in self._data if any(fnmatch.fnmatch(
-                x.metadata[k], v) for k, v in metadata.iteritems())]
+                x.metadata[k], v) for k, v in metadata.items())]

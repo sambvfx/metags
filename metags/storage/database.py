@@ -4,7 +4,8 @@ Database storage model.
 from metags.core import Item
 from metags.events import event
 from metags.storage.base import AbstractStorageEngine
-from sqlalchemy import create_engine, Column, Integer, String, ForeignKey
+from sqlalchemy import create_engine, Column, Integer, String, ForeignKey, \
+    UniqueConstraint
 from sqlalchemy.orm import sessionmaker, relationship, joinedload, aliased
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.ext.declarative import declarative_base
@@ -23,9 +24,10 @@ Base = declarative_base()
 class Entity(Base):
     __tablename__ = 'entity'
     id = Column(Integer, autoincrement=True, primary_key=True)
-    # FIXME: add a unique index for url + c4
-    url = Column(String)
+    url = Column(String, index=True)
     c4 = Column(String)
+
+    UniqueConstraint(url, c4)
 
     meta = relationship('LinkMeta')
 
@@ -37,7 +39,7 @@ class Entity(Base):
 class Meta(Base):
     __tablename__ = 'meta'
     id = Column(Integer, autoincrement=True, primary_key=True)
-    content = Column(String)
+    content = Column(String, index=True)
 
 
 class LinkMeta(Base):
@@ -135,7 +137,7 @@ class DatabaseStorageEngine(AbstractStorageEngine):
             .options(joinedload('meta')) \
             .one()
 
-    def get_meta(self, content):
+    def fetch_meta(self, content):
         """
         Get existing or create new meta.
         
@@ -165,19 +167,18 @@ class DatabaseStorageEngine(AbstractStorageEngine):
         metadata : dict
         """
         with self.transaction() as session:
-            for k, v in metadata.iteritems():
-                key = self.get_meta(k)
+            for k, v in metadata.items():
+                key = self.fetch_meta(k)
                 for content in v:
-                    value = self.get_meta(content)
+                    value = self.fetch_meta(content)
                     kwargs = dict(entity_id=entity.id, key_id=key.id,
                                   value_id=value.id)
                     try:
-                        link = session.query(LinkMeta)\
+                        session.query(LinkMeta)\
                             .filter_by(**kwargs)\
                             .one()
                     except NoResultFound:
-                        link = LinkMeta(**kwargs)
-                        session.add(link)
+                        session.add(LinkMeta(**kwargs))
 
     def update_meta(self, item):
         """
@@ -268,7 +269,7 @@ class DatabaseStorageEngine(AbstractStorageEngine):
                 .join(LinkMeta)\
                 .join(metakeys, LinkMeta.key_id == metakeys.id)\
                 .join(metavalues, LinkMeta.value_id == metavalues.id)
-            for key, values in metadata.iteritems():
+            for key, values in metadata.items():
                 if '*' in key or '%' in key:
                     query = query.filter(
                         metakeys.content.like(key.replace('*', '%')))

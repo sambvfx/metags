@@ -1,7 +1,7 @@
 """
 Simple in-process event system.
 
-TODO: upgrade this to send messages over zeromq.
+TODO: upgrade this event system
 """
 import functools
 from kids.cache import undecorate, SUPPORTED_DECORATOR

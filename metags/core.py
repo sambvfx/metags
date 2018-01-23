@@ -1,6 +1,4 @@
-import os
 import six
-import datetime
 import collections
 import attr
 import metags.utils

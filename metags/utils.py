@@ -1,8 +1,9 @@
 import os
+import six
 import hashlib
 from kids.cache import cache
 
-from typing import Type
+from typing import *
 
 
 def _b58encode(bytes):
@@ -14,8 +15,10 @@ def _b58encode(bytes):
     """
     __b58chars = '123456789abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ'
     __b58base = len(__b58chars)
-
-    long_value = int(bytes.encode("hex_codec"), 16)
+    if six.PY2:
+        long_value = int(bytes.encode("hex_codec"), 16)
+    else:
+        long_value = int(bytes.hex(), 16)
 
     result = ''
     while long_value >= __b58base:
@@ -29,7 +32,7 @@ def _b58encode(bytes):
 
 
 @cache
-def createC4hash(filepath, statinfo):
+def createC4hash(filepath, **kwargs):
     """
     Caluculate a c4 hash from a filepath.
     
@@ -39,9 +42,8 @@ def createC4hash(filepath, statinfo):
     Parameters
     ----------
     filepath : str 
-    statinfo : Type[posix.stat_result]
-        This statinfo is provide for `kids.cache` to re-trigger the hash
-        caluculation if basic stat info has been updated.
+    kwargs : Dict
+        Unused kwargs for `kids.cache` to re-trigger the hash caluculation.
 
     Returns
     -------
@@ -52,9 +54,14 @@ def createC4hash(filepath, statinfo):
         block_size = 100 * (2 ** 20)
         cnt_blocks = 0
         while True:
-            block = f.read(block_size)
+            try:
+                block = f.read(block_size)
+            except UnicodeDecodeError:
+                break
             if not block:
                 break
+            if six.PY3:
+                block = block.encode('utf-8')
             sha512_hash.update(block)
             cnt_blocks = cnt_blocks + 1
         f.close()
@@ -88,4 +95,20 @@ def c4hash(filepath):
     """
     filepath = os.path.realpath(filepath)
     statinfo = os.stat(filepath)
-    return createC4hash(filepath, statinfo)
+    return createC4hash(
+        filepath, st_size=statinfo.st_size, st_mtime=statinfo.st_mtime)
+
+
+def tracktime(func):
+
+    import time
+    import functools
+
+    @functools.wraps(func)
+    def _wrap(*args, **kwargs):
+        start = time.time()
+        results = func(*args, **kwargs)
+        print('{} took {:06f}s'.format(func.__name__, time.time() - start))
+        return results
+
+    return _wrap

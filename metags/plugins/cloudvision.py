@@ -56,6 +56,5 @@ def add_image_dimensions_labels(storage, item):
         except ImportError:
             pass
         else:
-
             storage.update_meta(item)
     return item
